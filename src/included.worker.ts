@@ -57,7 +57,7 @@ export default class includedWorker {
 
     if (!this.metadataPieces) {
       throw new Error(
-        "metadataScraper >> metadataPieces is undefined. please check your session id."
+        "metadataScraper >> metadataPieces is undefined. please check your CLIENT_SESSION_ID."
       );
     }
 
