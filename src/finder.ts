@@ -19,8 +19,7 @@ export default class finder {
     );
   }
 
-  async getSearchResult(isNsfw: boolean, algoliaApiKey?: string) {
-    log("DEBUG > setSearchResult");
+  async getUser(isNsfw: boolean, algoliaApiKey?: string) {
     let { body } = await got(
       `https://27qc0ib0er.algolia.io/1/indexes/campaigns_with_nsfw?query=${
         this.target
@@ -36,8 +35,10 @@ export default class finder {
         },
       }
     );
-    this.targetThumbnailImageUrl = new URL(JSON.parse(body).hits[0].thumb); // 특정한 경우를 위해 타겟의 Thumbnail URL을 imageWorker.targetThumbnailImageUrl 에 할당하고 접근 가능하게 함.
-    return new URL(JSON.parse(body).hits[0].thumb);
+    let userThumbnailUrl = new URL(JSON.parse(body).hits[0].thumb);
+    log(`getUser >> Target Thumbnail URL: ${userThumbnailUrl}`);
+    this.targetThumbnailImageUrl = userThumbnailUrl; // 특정한 경우를 위해 타겟의 Thumbnail URL을 imageWorker.targetThumbnailImageUrl 에 할당하고 접근 가능하게 함.
+    return userThumbnailUrl; // 타겟의 Thumbnail URL은 CampaignId를 extract 하는데 사용 됨.
   }
 
   async extractUserCampaignId(sourceThumbnailImageUrl: URL) {
@@ -47,10 +48,10 @@ export default class finder {
         sourceThumbnailImageUrl.pathname
       ).campaignID;
 
-      log(`DEBUG > extractUserCampaignId > RETURN: ${campaignID}`);
+      log(`extractUserCampaignId >> Campaign ID: ${campaignID}`);
       return campaignID; // 작업이 완료되었으면 campaignID를 return.
     } catch (err) {
-      throw new Error("extractUserCampaignId > Parse Error!");
+      throw new Error("extractUserCampaignId >> Parse Error!");
     }
   }
 }
