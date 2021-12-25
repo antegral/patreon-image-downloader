@@ -1,154 +1,153 @@
 import log from "./logger";
 import finder from "./finder";
 import includedWorker from "./included.worker";
-import got from "got";
+import got, { Progress, ToughCookieJar } from "got";
 import {
   patreonPostPageObject,
-  patreonPostIncludeObject,
   patreonDownloadableContent,
 } from "../@types/patreonPost";
-import { Path } from "path-parser";
 import { URL } from "url";
 import { CookieJar } from "tough-cookie";
 import { promisify } from "util";
 import fs, { createWriteStream } from "fs";
 import stream from "stream";
-import ora from "ora";
-import ProgressBar from "progress";
 import { env } from "process";
 import { join } from "path";
+import Gauge from "gauge";
 
 export default class imageWorker extends finder {
-  private IncludedListStorages: string[];
   public campaignID: string;
   public targetThumbnailImageUrl: URL;
+  private cookieJar: ToughCookieJar;
+  private count: number;
+  private objLength: number;
 
   constructor(sessionId: string, target: string) {
     super(sessionId, target);
-  }
-
-  async getDownloadableContent(campaignID: number) {
-    let worker = new includedWorker();
-    let metadata = await worker.downloadMetadata(
-      `https://www.patreon.com/api/stream?include=attachments%2Cimages%2Cmedia&fields[post]=content%2Ccurrent_user_can_view%2Cimage%2Cpost_file%2Cpublished_at%2Cpatreon_url%2Cpost_type%2Cthumbnail_url%2Ctitle&filter[campaign_id]=${campaignID}&filter[contains_exclusive_posts=true&soft=-published_at&json-api-use-default-includes=false&json-api-version=1.0`
-    );
-    log(`DEBUG > getIncludedList > Session ID: ${this.sessionId}`);
-  }
-
-  async downloadContents(
-    contents: patreonDownloadableContent[]
-  ): Promise<boolean> {
-    // 에러 핸들링 필요
-    log("DEBUG > downloadContents");
-    let count: number = 1;
-    let spinner: ora.Ora;
-
-    return new Promise((resolve, reject) => {
-      log(`DEBUG > downloadContents > Session ID: ${this.sessionId}`);
-      if (env.IS_DEBUG_MODE !== "true")
-        spinner = ora(
-          `🛰 Downloading Contents... (${count}/${contents.length})`
-        ).start();
-    })
-      .then(async () => {
-        // if(env.IS_DEBUG_MODE === "true") { log(`DEBUG > downloadContents > ${contents[0].downloadURL} (${contents[0].filename})`) };
-        for await (let e of contents) {
-          this.createDownloadTask(
-            e.downloadURL,
-            this.target,
-            e.filename,
-            false,
-            (res) => {
-              log(`DEBUG > createDownloadTask > OK - ${res}`);
-            }
-          );
-        }
-      })
-      .then(() => {
-        if (env.IS_DEBUG_MODE !== "true") spinner.stop();
-        log("Download Complete!");
-        return true;
-      });
-  }
-
-  private async createDownloadTask(
-    SourceURL: string,
-    path: string,
-    filename: string,
-    isThumbnail: boolean,
-    callback
-  ) {
     let cookieJar = new CookieJar();
     let setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
+    setCookie(
+      `session_id=${this.sessionId}; Path=/; Domain=.patreon.com; Expires=Sat, 12 Feb 2050 15:53:14 GMT;`,
+      "https://www.patreon.com/"
+    );
+    this.cookieJar = cookieJar;
+  }
+
+  async getDownloadableContentList(campaignID: number) {
+    log(`getDownloadableContentList >> Session ID: ${this.sessionId}`);
+    let worker = new includedWorker(this.sessionId);
+    let metadata = await worker
+      .downloadMetadata(
+        `https://www.patreon.com/api/stream?include=attachments%2Cimages%2Cmedia&fields[post]=content%2Ccurrent_user_can_view%2Cimage%2Cpost_file%2Cpublished_at%2Cpatreon_url%2Cpost_type%2Cthumbnail_url%2Ctitle&filter[campaign_id]=${campaignID}&filter[contains_exclusive_posts=true&soft=-published_at&json-api-use-default-includes=false&json-api-version=1.0`
+      )
+      .then((metadata) => {
+        log(`getDownloadableContentList >> OK. (${metadata.length} contents.)`);
+        return metadata;
+      });
+
+    return metadata;
+  }
+
+  async getContents(contents: patreonDownloadableContent[]): Promise<boolean> {
+    // 에러 핸들링 필요
+    this.count = 1;
+    this.objLength = contents.length;
+
+    for await (let e of contents) {
+      log(`getContents >> ${e.filename} (${e.downloadURL})`);
+      await this.downloadContents(e);
+      await promisify(setTimeout)(100);
+    }
+
+    log("getContents >> Download Complete!");
+    return true;
+  }
+
+  private async downloadContents(downloadableObj: patreonDownloadableContent) {
+    let cookieJar = this.cookieJar; // cookieJar 선언
     let pipeline = promisify(stream.pipeline); // pipeline 생성
-    let bar: ProgressBar; // ProgressBar 준비
 
     // UTF-8 형태의 디렉토리를 먼저 생성
     let downloadPath: string;
 
     // 썸네일 여부 확인 후, 썸네일은 상위 폴더에 저장하게 함.
-    if (isThumbnail === true) {
-      downloadPath = fs.mkdirSync(join(__dirname, "output", path), {
-        recursive: true,
-      });
-    } else {
-      downloadPath = fs.mkdirSync(
-        join(__dirname, "output", path, "Attachment"),
-        {
+    switch (downloadableObj.type) {
+      case "media":
+        downloadPath = join(
+          __dirname,
+          "output",
+          this.target,
+          "media",
+          downloadableObj.filename
+        );
+        fs.mkdirSync(join(downloadPath, ".."), {
           recursive: true,
-        }
-      );
+        });
+        break;
+
+      case "attachment":
+        downloadPath = join(
+          __dirname,
+          "output",
+          this.target,
+          "attachment",
+          downloadableObj.filename
+        );
+        fs.mkdirSync(join(downloadPath, ".."), {
+          recursive: true,
+        });
+        break;
+
+      default:
+        throw new Error("createDownloadTask >> Unknown type");
+        break;
     }
-
-    log("DEBUG > createDownloadTask");
-    await setCookie(
-      `session_id=${this.sessionId}; Path=/; Domain=.patreon.com; Expires=Sat, 12 Feb 2050 15:53:14 GMT;`,
-      "https://www.patreon.com/"
-    );
-
-    log("DEBUG > createDownloadTask > Downloading...");
 
     // 파일 다운로드 로직
     // 1. downloadStream, fileWriterStream 선언
-    let downloadStream = got.stream(SourceURL, { cookieJar });
-    let fileWriterStream = createWriteStream(
-      join(__dirname, downloadPath, filename)
-    );
+    let downloadStream = got.stream(downloadableObj.downloadURL, { cookieJar });
+    let fileWriteStream = createWriteStream(downloadPath);
+    let gauge: Gauge;
+
+    if (env.IS_DEBUG_MODE === "false") {
+      gauge = new Gauge();
+      gauge.show(
+        `(${this.count}/${this.objLength}) Downloading ${downloadableObj.filename}...`,
+        0
+      );
+    } // Progress Bar
+
+    // ignore MaxListenersExceededWarning
+    downloadStream.setMaxListeners(0);
+    fileWriteStream.setMaxListeners(0);
 
     // 2. downloadStream에서 Emit되는 downloadProgress Event 리스닝
-    downloadStream.on("downloadProgress", (progress) => {
-      if (!bar && env.IS_DEBUG_MODE !== "true") {
+    downloadStream.on("downloadProgress", (progress: Progress) => {
+      if (env.IS_DEBUG_MODE === "false") {
         // ProgressBar 선언, CLI로 출력 담당
-        bar = new ProgressBar(
-          "  📥 Downloading images...\n  |:bar| :rate/kbps :percent (Remaining :etas)",
-          {
-            complete: "█",
-            incomplete: " ",
-            width: 50,
-            total: progress.total,
-          }
+        gauge.pulse();
+        gauge.show(
+          `(${this.count}/${this.objLength}) Downloading ${downloadableObj.filename}...`,
+          progress.percent
         );
-      } else if (env.IS_DEBUG_MODE !== "true") {
-        // 전송받은 양 전달하여, ProgressBar를 tick.
-        bar.tick(progress.transferred);
+      } else {
+        log(
+          `downloadStream >> Downloading... (${progress.transferred}/${progress.total})`
+        );
       }
     });
 
     // 3. pipeline 구축: downloadStream > fileWriterStream
-    pipeline(downloadStream, fileWriterStream)
-      .then(() => {
-        log("DEBUG > createDownloadTask > Complate.");
-        callback(join(__dirname, downloadPath, filename)); // 저장된 파일 경로를 반환.
-      })
-      .catch(() => {
-        callback(null);
-      });
+    await pipeline(downloadStream, fileWriteStream).then(() => {
+      this.count = this.count + 1;
+      if (env.IS_DEBUG_MODE === "false") gauge.hide(); // Stop Progress Bar
+      return true;
+    });
   }
 
   calculrateDownloadablePostContents(
     getPostsResult: patreonPostPageObject.RootObject
   ) {
-    log(`DEBUG > calculrateDownloadAvailablePostContents`);
     let count: number = 1;
 
     getPostsResult.data.forEach((e: patreonPostPageObject.Data) => {
@@ -161,81 +160,3 @@ export default class imageWorker extends finder {
     return count;
   }
 }
-
-/* 
-  // 모든 posts만 가져오고 included를 가져오는 처리는 하지 않음.
-  // 이는 getIncluded에서 해당 로직을 기반으로 보강해서 재작성 했으므로 해당 기능은 주석처리 (미사용)
-  async getPosts(
-    campaignID: number,
-    callback: (result: null | patreonPostPageObject.RootObject) => void
-  ) {
-    if (env.IS_DEBUG_MODE === "true") {
-      log("DEBUG > getPosts");
-    }
-
-    let cookieJar = new CookieJar();
-    let setCookie = promisify(cookieJar.setCookie.bind(cookieJar));
-
-    if (env.IS_DEBUG_MODE === "true") {
-      log(`DEBUG > getPosts > Session ID: ${this.sessionId}`);
-    }
-    await setCookie(
-      `session_id=${this.sessionId}; Path=/; Domain=.patreon.com; Expires=Sat, 12 Feb 2050 15:53:14 GMT;`,
-      "https://www.patreon.com/"
-    );
-
-    let petchData = [];
-    let petchIncluded = [];
-
-    let convertedIncludedObject = [];
-
-    let runCount: number = 1;
-
-    run(
-      `https://www.patreon.com/api/stream?include=attachments%2Cimages%2Cmedia&fields[post]=content%2Ccurrent_user_can_view%2Cimage%2Cpost_file%2Cpublished_at%2Cpatreon_url%2Cpost_type%2Cthumbnail_url%2Ctitle&filter[campaign_id]=${campaignID}&filter[contains_exclusive_posts=true&soft=-published_at&json-api-use-default-includes=false&json-api-version=1.0`
-    );
-
-    async function run(nextLink: string) {
-      if (env.IS_DEBUG_MODE === "true")
-        log(`DEBUG > getPosts > Downloading Pages... (${runCount++})`);
-      let { body } = await got(nextLink, {
-        cookieJar,
-      });
-      if (!JSON.parse(body).links.next) {
-        // Unavailable Next Link
-        return new Promise((resolve, reject) => {
-          // Last data push
-          petchData.push(JSON.parse(body).data);
-          resolve(true);
-        }).then(() => {
-          if (env.IS_DEBUG_MODE === "true")
-            log(
-              `DEBUG > getPosts > run > includedObjectProcess > processed count: ${convertedIncludedObject.length}`
-            );
-          let serveData: patreonPostPageObject.RootObject = {
-            data: petchData.flat(),
-            included: convertedIncludedObject,
-            meta: {
-              posts_count: petchData.flat().length,
-            },
-          };
-
-          if (env.IS_DEBUG_MODE === "true")
-            log(
-              `DEBUG > All Pages Collected! Post/Included count : ${serveData.data.length}/${convertedIncludedObject.length}`
-            );
-          callback(serveData); // post를 모두 가져온다음, 코드 동기성을 위해 callback의 인자 값으로 값을 넘겨주고 호출함. (paramater의 function을 호출하고 그 인자로 결과값을 전달)
-        });
-      } else if (typeof JSON.parse(body).links.next === "string") {
-        // Available Next Link
-        petchData.push(JSON.parse(body).data);
-        petchIncluded.push(JSON.parse(body).included);
-        run(`https://${JSON.parse(body).links.next}`);
-      } else {
-        // Unexpected Parse Error
-        if (env.IS_DEBUG_MODE === "true") log("Error!");
-        callback(null);
-      }
-    }
-  }
-*/
