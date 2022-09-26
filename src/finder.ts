@@ -15,7 +15,7 @@ export default class finder {
     this.target = target;
 
     this.targetSearchPathFormat = new Path(
-      "/3/eyJ3IjoyMDB9/patreon-media/p/campaign/:campaignID"
+      "/:num/patreon-media/p/campaign/:campaignID"
     );
   }
 
