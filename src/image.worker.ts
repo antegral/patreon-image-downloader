@@ -117,10 +117,6 @@ export default class imageWorker extends finder {
       );
     } // Progress Bar
 
-    // ignore MaxListenersExceededWarning
-    downloadStream.setMaxListeners(0);
-    fileWriteStream.setMaxListeners(0);
-
     // 2. downloadStream에서 Emit되는 downloadProgress Event 리스닝
     downloadStream.on("downloadProgress", (progress: Progress) => {
       if (env.IS_DEBUG_MODE === "false") {
@@ -143,6 +139,10 @@ export default class imageWorker extends finder {
       if (env.IS_DEBUG_MODE === "false") gauge.hide(); // Stop Progress Bar
       return true;
     });
+
+    // 4. 두 stream 종료: downloadStream, fileWriteStream
+    fileWriteStream.end();
+    downloadStream.destroy();
   }
 
   calculrateDownloadablePostContents(

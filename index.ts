@@ -38,20 +38,25 @@ async function run() {
     return url;
   });
 
-  let campaignID = await imgWorker
-    .extractUserCampaignId(targetUrl)
-    .then((cid) => {
+  if (env.MANUAL_CAMPAIGN_ID) {
+    spinner.color = "green";
+    spinner.text =
+      " 🔭  Manual Campaign ID detected! > Downloading post metadatas...";
+  }
+
+  let campaignID =
+    env.MANUAL_CAMPAIGN_ID ||
+    (await imgWorker.extractUserCampaignId(targetUrl).then((cid) => {
       spinner.color = "green";
       spinner.text =
         " 🔭  Extracted Campaign ID! > Downloading post metadatas...";
 
       return cid;
-    });
+    }));
 
   imgWorker.getDownloadableContentList(campaignID).then((metadata) => {
     spinner.color = "yellow";
-    spinner.text =
-      " 🧲  Downloaded post metadatas! > Starting download services...";
+    spinner.text = " 🧲  Downloaded post metadatas! > Starting download...";
 
     setTimeout(() => {
       if (env.IS_DEBUG_MODE === "false") spinner.stop();
