@@ -31,28 +31,30 @@ async function run() {
   // generate imageWorker
   let imgWorker = new imageWorker(env.CLIENT_SESSION_ID, env.CLIENT_TARGET);
 
-  let targetUrl = await imgWorker.getUser(true).then((url: URL) => {
-    spinner.color = "green";
-    spinner.text = " 🚀  Target Found! > Extracting Campaign ID...";
+  let campaignID = 0;
+  if (!parseInt(env.MANUAL_CAMPAIGN_ID)) {
+    let targetUrl = await imgWorker.getUser(true).then((url: URL) => {
+      spinner.color = "green";
+      spinner.text = " 🚀  Target Found! > Extracting Campaign ID...";
 
-    return url;
-  });
+      return url;
+    });
 
-  if (env.MANUAL_CAMPAIGN_ID) {
+    campaignID = await imgWorker
+      .extractUserCampaignId(targetUrl)
+      .then((cid) => {
+        spinner.color = "green";
+        spinner.text =
+          " 🔭  Extracted Campaign ID! > Downloading post metadatas...";
+
+        return cid;
+      });
+  } else {
+    campaignID = parseInt(env.MANUAL_CAMPAIGN_ID);
     spinner.color = "green";
     spinner.text =
       " 🔭  Manual Campaign ID detected! > Downloading post metadatas...";
   }
-
-  let campaignID =
-    env.MANUAL_CAMPAIGN_ID ||
-    (await imgWorker.extractUserCampaignId(targetUrl).then((cid) => {
-      spinner.color = "green";
-      spinner.text =
-        " 🔭  Extracted Campaign ID! > Downloading post metadatas...";
-
-      return cid;
-    }));
 
   imgWorker.getDownloadableContentList(campaignID).then((metadata) => {
     spinner.color = "yellow";
