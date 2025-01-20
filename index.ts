@@ -1,15 +1,9 @@
-// import login from './src/login';
 import imageWorker from "./src/image.worker";
-import finder from "./src/finder";
-import {
-  patreonPostPageObject,
-  patreonPostIncludeObject,
-  patreonDownloadableContent,
-} from "./@types/patreonPost";
 import { URL } from "url";
 import dotenv from "dotenv";
 import { env } from "process";
 import ora from "ora";
+import { saveMetadata } from "./src/included.worker";
 
 let spinner: any;
 
@@ -59,6 +53,9 @@ async function run() {
   imgWorker.getDownloadableContentList(campaignID).then((metadata) => {
     spinner.color = "yellow";
     spinner.text = " 🧲  Downloaded post metadatas! > Starting download...";
+
+    // if you want to save metadata, uncomment below line.
+    // saveMetadata(metadata);
 
     setTimeout(() => {
       if (env.IS_DEBUG_MODE === "false") spinner.stop();

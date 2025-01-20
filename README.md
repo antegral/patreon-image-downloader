@@ -13,20 +13,24 @@ displayed value is your `CLIENT_SESSION_ID`.
 ## library install
     git clone https://github.com/antegral/patreon-image-downloader.git
     cd patreon-image-downloader
-    npm install
+    pnpm install
 
 ## Start application
 > **Warning!**
 > Before using cli download, please edit filename config.example.env to config.env.
 > and, you must edit config.env.
 
-    npm start
+    `pnpm start`
 or
-
-    npm run start
+    `pnpm run start`
+or 
+    `ts-node ./index.ts` (It is recommended to run as npx or pnpx.)
 
 ## Dump metadata
 ### using cli
-insert after Promise Callback in `imgWorker.getDownloadableContentList` of index.ts
+insert `saveMetadata(metadata)` between Promise Callback in `imgWorker.getDownloadableContentList()` of `index.ts`
+it's already commented out in the appropriate places, you just need to uncomment it.
+
+(see `index.ts` for more details)
 ### using library
-   call `includedWorker.saveMetaData([patreonDownloadableContent[]])`
+call `includedWorker.writeFile(patreonDownloadableContent[])`

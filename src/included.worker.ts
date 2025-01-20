@@ -100,11 +100,15 @@ export default class includedWorker {
     return convedMetadatas;
   }
 
-  saveMetadata(data: patreonDownloadableContent[]) {
-    writeFileSync(
-      join(__dirname, "../", "output.json"),
-      Buffer.from(JSON.stringify(data), "utf-8")
-    );
-    log("saveMetadata >> Saved patreonDownloadableContent.");
+  writeFile(data: patreonDownloadableContent[]) {
+    saveMetadata(data);
   }
 }
+
+export const saveMetadata = (data: patreonDownloadableContent[]) => {
+  writeFileSync(
+    join(__dirname, "../", "output.json"),
+    Buffer.from(JSON.stringify(data), "utf-8")
+  );
+  log("saveMetadata >> Saved patreonDownloadableContent.");
+};
