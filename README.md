@@ -7,7 +7,7 @@
 ![image](https://github.com/user-attachments/assets/8ca2a63c-7949-4e59-aced-f5d4b06f2829)
 
 1. Login your [Patreon Account](https://www.patreon.com/home).
-2. Open DevTools (press F12 or Crtl+Shift+I).
+2. Open DevTools (press F12 or Ctrl+Shift+I).
 3. Click `Application` tab.
 4. Click `Cookies` and `https://www.patreon.com`
 5. Find `session_id` name.
