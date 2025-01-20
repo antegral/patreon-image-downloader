@@ -1,36 +1,43 @@
 # Patreon Media(image) Downloader
 
-> **Disclaimer**
+> **Disclaimer**<br/>
 > We are not responsible for any (legal) problems arising from using this program or library.
 
-## how get my `CLIENT_SESSION_ID`?
-install [EditThisCookie Extension](https://chrome.google.com/webstore/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg). 
-login your [patreon account](https://www.patreon.com/home).
-open EditThisCookie Extension menu.
-find `session_id` menu. and click.
-displayed value is your `CLIENT_SESSION_ID`.
+## How get my `CLIENT_SESSION_ID`?
+![image](https://github.com/user-attachments/assets/8ca2a63c-7949-4e59-aced-f5d4b06f2829)
 
-## library install
-    git clone https://github.com/antegral/patreon-image-downloader.git
-    cd patreon-image-downloader
-    pnpm install
+1. Login your [Patreon Account](https://www.patreon.com/home).
+2. Open DevTools (press F12 or Crtl+Shift+I).
+3. Click `Application` tab.
+4. Click `Cookies` and `https://www.patreon.com`
+5. Find `session_id` name.
+6. Displayed value is your `CLIENT_SESSION_ID`.
+
+## Library install
+```bash
+git clone https://github.com/antegral/patreon-image-downloader.git
+cd patreon-image-downloader
+pnpm install
+```
 
 ## Start application
-> **Warning!**
+> **Warning!**<br/>
 > Before using cli download, please edit filename config.example.env to config.env.
 > and, you must edit config.env.
 
-    `pnpm start`
+`pnpm run start`
+
+
 or
-    `pnpm run start`
-or 
-    `ts-node ./index.ts` (It is recommended to run as npx or pnpx.)
+
+
+`ts-node ./index.ts` (It is recommended to run as npx or pnpx.)
 
 ## Dump metadata
-### using cli
-insert `saveMetadata(metadata)` between Promise Callback in `imgWorker.getDownloadableContentList()` of `index.ts`
+### Using cli
+insert `saveMetadata(metadata)` between Promise Callback in `imgWorker.getDownloadableContentList()` of `index.ts`.<br/>
 it's already commented out in the appropriate places, you just need to uncomment it.
 
 (see `index.ts` for more details)
-### using library
+### Using library
 call `includedWorker.writeFile(patreonDownloadableContent[])`
