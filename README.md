@@ -1,5 +1,8 @@
 # Patreon Media(image) Downloader
 
+> [!NOTE]
+> **[2026 UPDATE!]** A Go-based v2 is in development!
+
 > **Disclaimer**<br/>
 > We are not responsible for any (legal) problems arising from using this program or library.
 
